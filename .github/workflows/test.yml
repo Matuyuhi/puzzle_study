@@ -1,50 +1,50 @@
-name: Run EditMode and PlayMode Test
-on:
-  workflow_dispatch: {}
+name: Actions 😎
+
+on: [push, pull_request]
+
 jobs:
-  test:
-    name: Run EditMode and PlayMode Test
+  build:
+    name: Build my project ✨
     runs-on: ubuntu-latest
     steps:
-      # actions/checkout@v2 を利用して作業ディレクトリに
-      # Unity プロジェクトの中身をダウンロードしてくる
-      - name: Check out my unity project.
+      # Checkout
+      - name: Checkout repository
         uses: actions/checkout@v2
+        # with:
+        #   lfs: true
 
-      # GameCI の Test runner を利用して
-      # EditMode 及び PlayMode のテストを実行する
-      - name: Run EditMode and PlayMode Test
+      # Cache
+      #- uses: actions/cache@v2
+      #  with:
+      #    path: ./src/Library
+      #    key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+      #    restore-keys: |
+      #      Library-
+
+      # Test
+      - name: Run tests
         uses: game-ci/unity-test-runner@v2
         env:
-          # 2. の手順で Secrets に登録した Unity ライセンスの情報を指定する
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+           githubToken: ${{ secrets.GITHUB_TOKEN }}
 
-          # もし Professional license を使いたい場合は、
-          # メールアドレス、パスワード、シリアルナンバーを入力する必要がある
-          # ref: https://game.ci/docs/github/test-runner#professional-license
+           projectPath: ./src
+
+           unityVersion: 2021.3.23f1
+
+      # Build
+      - name: Build project
+        uses: game-ci/unity-builder@v2
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           # UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           # UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-          # UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         with:
-          projectPath: ./src
-          # テストの実行結果もみたい場合は githubToken を指定する
-          # secrets.GITHUB_TOKEN は Secrets 未登録でも利用可能
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          targetPlatform: WebGL
 
-          # Unity プロジェクトのバージョンを指定する
-          # ProjectSettings/ProjectVersion.txt に記載されているバージョンを入力すれば OK
-          unityVersion: 2021.3.23f1
-
-          # 実行したいテストの種類を指定できる
-          # 指定可能な値は All, PlayMode, EditMode
-          # testMode: All
-
-          # テスト実行時に利用したい Docker イメージを明示的に指定できる
-          # customImage: 'unityci/editor:2020.1.14f1-base-0'
-
-      # テストの実行結果をアーティファクトにアップロードしてダウンロードして参照できるようにする
+      # Output
       - uses: actions/upload-artifact@v2
-        if: always()
         with:
-          name: Test results
-          path: artifacts
+          name: Build
+          path: build
