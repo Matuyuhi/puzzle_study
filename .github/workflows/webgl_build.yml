@@ -1,5 +1,6 @@
 name: Run the WebGL build
 on:
+  push:
   workflow_dispatch: {}
 jobs:
   build:
