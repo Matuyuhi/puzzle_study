@@ -26,7 +26,7 @@ jobs:
           # UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
           # UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         with:
-          projectPath: .
+          projectPath: ./src
           # テストの実行結果もみたい場合は githubToken を指定する
           # secrets.GITHUB_TOKEN は Secrets 未登録でも利用可能
           githubToken: ${{ secrets.GITHUB_TOKEN }}
