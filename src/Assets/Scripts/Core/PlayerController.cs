@@ -7,6 +7,17 @@ namespace Core
 {
     public class PlayerController : MonoBehaviour
     {
+        private LogicalInput logicalInput = new ();
+
+        private static readonly KeyCode[] key_code_tbl = new KeyCode[(int)LogicalInput.Key.MAX]
+        {
+            KeyCode.RightArrow,
+            KeyCode.LeftArrow,
+            KeyCode.X,
+            KeyCode.Z,
+            KeyCode.UpArrow,
+            KeyCode.DownArrow
+        };
         enum RotState
         {
             Up = 0,
@@ -30,10 +41,10 @@ namespace Core
         private AnimationController animationController = new AnimationController();
         private Vector2Int _lastPosition;
         private RotState _lastRotate = RotState.Up;
-        private const float TRANS_TIME = 0.05f;
-        private const float ROT_TIME = 0.05f;
+        private const int TRANS_TIME = 3;
+        private const int ROT_TIME = 3;
 
-        private void SetTransition(Vector2Int pos, RotState rot, float time)
+        private void SetTransition(Vector2Int pos, RotState rot, int time)
         {
             _lastPosition = position;
 
@@ -57,35 +68,50 @@ namespace Core
             puyoControllers[1].SetPos(new Vector3((float)posChild.x, (float)posChild.y, 0.0f));
         }
 
+        private void UpdateInput()
+        {
+            LogicalInput.Key inputDev = 0;
+
+            for (int i = 0; i < (int)LogicalInput.Key.MAX; i++)
+            {
+                if (Input.GetKey(key_code_tbl[i]))
+                {
+                    inputDev |= (LogicalInput.Key)(1 << i);
+                }
+            }
+            logicalInput.Update(inputDev);
+        }
+
         private void Control()
         {
-            if (Input.GetKeyDown(KeyCode.RightArrow))
+            if (logicalInput.IsRelease(LogicalInput.Key.Right))
             {
                 Translate(true);
             }
-            if (Input.GetKeyDown(KeyCode.LeftArrow))
+            if (logicalInput.IsRelease(LogicalInput.Key.Left))
             {
                 Translate(false);
             }
 
-            if (Input.GetKeyDown(KeyCode.X))
+            if (logicalInput.isTrigger(LogicalInput.Key.RotR))
             {
                 Rotate(true);
             }
 
-            if (Input.GetKeyDown(KeyCode.Z))
+            if (logicalInput.isTrigger(LogicalInput.Key.RotL))
             {
                 Rotate(false);
             }
 
-            if (Input.GetKey(KeyCode.UpArrow))
+            if (logicalInput.IsRelease(LogicalInput.Key.QuickDrop))
             {
                 QuickDrop();
             }
         }
         
-        void Update()
+        private void FixedUpdate()
         {
+            UpdateInput();
             if (!animationController.Update(Time.deltaTime))
             {
                 Control();

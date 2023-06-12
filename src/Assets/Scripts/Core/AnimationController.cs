@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Core
@@ -6,35 +7,28 @@ namespace Core
     {
         private const float DELTA_TIME_MAX = 1.0f;
         
-        private float _time = 0.0f;
+        private int _time = 0;
 
         private float _inv_time_max = 1.0f;
 
-        public void Set(float maxTime)
+        public void Set(int maxTime)
         {
             Debug.Assert(0.0f < maxTime);
 
             _time = maxTime;
-            _inv_time_max = 1.0f / maxTime;
+            _inv_time_max = 1.0f / (float)maxTime;
         }
 
         public bool Update(float deltaTime)
         {
-            if (DELTA_TIME_MAX < deltaTime) deltaTime = DELTA_TIME_MAX;
-            _time -= deltaTime;
+            _time = Math.Max(--_time, 0);
 
-            if (_time <= 0.0f)
-            {
-                _time = 0.0f;
-                return false;
-            }
-
-            return true;
+            return (0 < _time);
         }
 
         public float GetNormalized()
         {
-            return _time * _inv_time_max;
+            return (float)_time * _inv_time_max;
         }
     }
 }
