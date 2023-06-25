@@ -7,6 +7,14 @@ namespace Core
 {
     public class PlayerController : MonoBehaviour
     {
+        private const int FALL_COUNT_UNIT = 120;// 1ます落下するカウント数
+        private const int FALL_COUNT_SPD = 10; // 落下速度
+        private const int FALL_COUNT_FAST_SPD = 20; // 高速落下時の速度
+        private const int GROUND_FRAMES = 50;
+
+        private int fallCount = 0;
+        private int groundFrame = GROUND_FRAMES;
+        
         private LogicalInput logicalInput = new ();
 
         private static readonly KeyCode[] key_code_tbl = new KeyCode[(int)LogicalInput.Key.MAX]
@@ -82,8 +90,45 @@ namespace Core
             logicalInput.Update(inputDev);
         }
 
+        private bool Fall(bool is_fast)
+        {
+            fallCount -= is_fast ? FALL_COUNT_FAST_SPD : FALL_COUNT_SPD;
+
+            while (fallCount < 0)
+            {
+                if (!CanMove(position + Vector2Int.down, rotate))
+                {
+                    fallCount = 0;
+                    if (0 < --groundFrame) return true;
+                    
+                    Settle();
+                    return false;
+                }
+
+                position += Vector2Int.down;
+                _lastPosition += Vector2Int.down;
+                fallCount += FALL_COUNT_UNIT;
+            }
+
+            return true;
+        }
+
+        private void Settle()
+        {
+            bool is_set0 = boardController.Settle(position, (int)puyoControllers[0].GetPuyoType());
+            Debug.Assert(is_set0);
+            
+            bool is_set1 = boardController.Settle(CalcChildPuyoPos(position, rotate), (int)puyoControllers[1].GetPuyoType());
+            Debug.Assert(is_set1);
+            
+            gameObject.SetActive(false);
+        }
+
         private void Control()
         {
+            if (!Fall(logicalInput.IsRaw(LogicalInput.Key.Down))) return;
+
+            if (animationController.Update()) return;
             if (logicalInput.IsRelease(LogicalInput.Key.Right))
             {
                 Translate(true);
@@ -112,14 +157,13 @@ namespace Core
         private void FixedUpdate()
         {
             UpdateInput();
-            if (!animationController.Update(Time.deltaTime))
-            {
-                Control();
-            }
+            
+            Control();
 
+            Vector3 dy = Vector3.up * (float)fallCount / (float)FALL_COUNT_UNIT;
             float anim_rate = animationController.GetNormalized();
-            puyoControllers[0].SetPos(Interpolate(position, RotState.Invalid, _lastPosition, RotState.Invalid, anim_rate));
-            puyoControllers[1].SetPos(Interpolate(position, rotate, _lastPosition, _lastRotate, anim_rate));
+            puyoControllers[0].SetPos(dy + Interpolate(position, RotState.Invalid, _lastPosition, RotState.Invalid, anim_rate));
+            puyoControllers[1].SetPos(dy + Interpolate(position, rotate, _lastPosition, _lastRotate, anim_rate));
 
         }
 
@@ -223,14 +267,8 @@ namespace Core
             pos -= Vector2Int.down;
 
             position = pos;
-
-            bool isSet0 = boardController.Settle(position, (int)puyoControllers[0].GetPuyoType());
-            Debug.Assert(isSet0);
             
-            bool isSet1 = boardController.Settle(CalcChildPuyoPos(position, rotate), (int)puyoControllers[1].GetPuyoType());
-            Debug.Assert(isSet1);
-            
-            gameObject.SetActive(false);
+            Settle();
         }
     }
 

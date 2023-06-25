@@ -19,7 +19,7 @@ namespace Core
             _inv_time_max = 1.0f / (float)maxTime;
         }
 
-        public bool Update(float deltaTime)
+        public bool Update()
         {
             _time = Math.Max(--_time, 0);
 
