@@ -1,7 +1,4 @@
-using Core;
 using UnityEngine;
-using UnityEngine.Serialization;
-using UnityEngine.UIElements;
 
 namespace Core
 {
@@ -17,15 +14,6 @@ namespace Core
         
         private LogicalInput logicalInput = new ();
 
-        private static readonly KeyCode[] key_code_tbl = new KeyCode[(int)LogicalInput.Key.MAX]
-        {
-            KeyCode.RightArrow,
-            KeyCode.LeftArrow,
-            KeyCode.X,
-            KeyCode.Z,
-            KeyCode.UpArrow,
-            KeyCode.DownArrow
-        };
         enum RotState
         {
             Up = 0,
@@ -35,33 +23,37 @@ namespace Core
             
             Invalid = -1,
         }
-        [FormerlySerializedAs("_puyoControllers")] [SerializeField] private PuyoController[] puyoControllers = new PuyoController[2] { default!, default! };
+        [SerializeField] private PuyoController[] puyoControllers = new PuyoController[2] { default!, default! };
         [SerializeField] private BoardController boardController = default!;
 
         private Vector2Int position; // 軸ぷよの位置
         private RotState rotate = RotState.Up;
 
-        private static readonly Vector2Int[] RotateTbl = new Vector2Int[]
-        {
+        private static readonly Vector2Int[] RotateTbl = {
             Vector2Int.up, Vector2Int.right, Vector2Int.down, Vector2Int.left
         };
 
-        private AnimationController animationController = new AnimationController();
-        private Vector2Int _lastPosition;
-        private RotState _lastRotate = RotState.Up;
+        private AnimationController animationController = new ();
+        private Vector2Int lastPosition;
+        private RotState lastRotate = RotState.Up;
         private const int TRANS_TIME = 3;
         private const int ROT_TIME = 3;
 
         private void SetTransition(Vector2Int pos, RotState rot, int time)
         {
-            _lastPosition = position;
+            lastPosition = position;
 
-            _lastRotate = rotate;
+            lastRotate = rotate;
 
             position = pos;
             rotate = rot;
             
             animationController.Set(time);
+        }
+
+        public void SetLogicalInput(LogicalInput reference)
+        {
+            logicalInput = reference;
         }
         
         void Start()
@@ -71,28 +63,40 @@ namespace Core
 
             position = new Vector2Int(2, 12);
         
-            puyoControllers[0].SetPos(new Vector3((float)position.x, (float)position.y, 0.0f));
+            puyoControllers[0].SetPos(new Vector3(position.x, position.y, 0.0f));
             Vector2Int posChild = CalcChildPuyoPos(position, rotate);
-            puyoControllers[1].SetPos(new Vector3((float)posChild.x, (float)posChild.y, 0.0f));
+            puyoControllers[1].SetPos(new Vector3(posChild.x, posChild.y, 0.0f));
         }
 
-        private void UpdateInput()
+        public bool Spawn(PuyoType axis, PuyoType child)
         {
-            LogicalInput.Key inputDev = 0;
+            Vector2Int pos = new(2, 12);
+            RotState rot = RotState.Up;
+            if (!CanMove(pos, rot)) return false;
 
-            for (int i = 0; i < (int)LogicalInput.Key.MAX; i++)
-            {
-                if (Input.GetKey(key_code_tbl[i]))
-                {
-                    inputDev |= (LogicalInput.Key)(1 << i);
-                }
-            }
-            logicalInput.Update(inputDev);
+            position = lastPosition = pos;
+            rotate = lastRotate = rotate;
+            animationController.Set(1);
+            fallCount = 0;
+            groundFrame = GROUND_FRAMES;
+            
+            puyoControllers[0].SetPuyoType(axis);
+            puyoControllers[1].SetPuyoType(child);
+            
+            puyoControllers[0].SetPos(new Vector3(position.x, position.y, 0.0f));
+            Vector2Int posChild = CalcChildPuyoPos(position, rotate);
+            puyoControllers[1].SetPos(new Vector3(posChild.x, posChild.y, 0.0f));
+            
+            gameObject.SetActive(true);
+
+            return true;
         }
 
-        private bool Fall(bool is_fast)
+        
+
+        private bool Fall(bool isFast)
         {
-            fallCount -= is_fast ? FALL_COUNT_FAST_SPD : FALL_COUNT_SPD;
+            fallCount -= isFast ? FALL_COUNT_FAST_SPD : FALL_COUNT_SPD;
 
             while (fallCount < 0)
             {
@@ -106,7 +110,7 @@ namespace Core
                 }
 
                 position += Vector2Int.down;
-                _lastPosition += Vector2Int.down;
+                lastPosition += Vector2Int.down;
                 fallCount += FALL_COUNT_UNIT;
             }
 
@@ -115,11 +119,11 @@ namespace Core
 
         private void Settle()
         {
-            bool is_set0 = boardController.Settle(position, (int)puyoControllers[0].GetPuyoType());
-            Debug.Assert(is_set0);
+            bool isSet0 = boardController.Settle(position, (int)puyoControllers[0].GetPuyoType());
+            Debug.Assert(isSet0);
             
-            bool is_set1 = boardController.Settle(CalcChildPuyoPos(position, rotate), (int)puyoControllers[1].GetPuyoType());
-            Debug.Assert(is_set1);
+            bool isSet1 = boardController.Settle(CalcChildPuyoPos(position, rotate), (int)puyoControllers[1].GetPuyoType());
+            Debug.Assert(isSet1);
             
             gameObject.SetActive(false);
         }
@@ -156,31 +160,30 @@ namespace Core
         
         private void FixedUpdate()
         {
-            UpdateInput();
-            
+
             Control();
 
-            Vector3 dy = Vector3.up * (float)fallCount / (float)FALL_COUNT_UNIT;
-            float anim_rate = animationController.GetNormalized();
-            puyoControllers[0].SetPos(dy + Interpolate(position, RotState.Invalid, _lastPosition, RotState.Invalid, anim_rate));
-            puyoControllers[1].SetPos(dy + Interpolate(position, rotate, _lastPosition, _lastRotate, anim_rate));
+            Vector3 dy = Vector3.up * fallCount / FALL_COUNT_UNIT;
+            float animRate = animationController.GetNormalized();
+            puyoControllers[0].SetPos(dy + Interpolate(position, RotState.Invalid, lastPosition, RotState.Invalid, animRate));
+            puyoControllers[1].SetPos(dy + Interpolate(position, rotate, lastPosition, lastRotate, animRate));
 
         }
 
-        private Vector3 Interpolate(Vector2Int pos, RotState rot, Vector2Int pos_last, RotState rot_last, float rate)
+        private Vector3 Interpolate(Vector2Int pos, RotState rot, Vector2Int posLast, RotState rotLast, float rate)
         {
             Vector3 p = Vector3.Lerp(
                 new Vector3(pos.x, pos.y, 0.0f),
-                new Vector3(pos_last.x, pos_last.y, 0.0f), rate);
+                new Vector3(posLast.x, posLast.y, 0.0f), rate);
 
             if (rot == RotState.Invalid) return p;
 
-            float theta0 = 0.5f * Mathf.PI * (float)(int)rot;
-            float theta1= 0.5f * Mathf.PI * (float)(int)rot_last;
+            float theta0 = 0.5f * Mathf.PI * (int)rot;
+            float theta1= 0.5f * Mathf.PI * (int)rotLast;
             float theta = theta1 - theta0;
 
-            if (+Mathf.PI < theta) theta = theta - 2.0f * Mathf.PI;
-            if (theta < -Mathf.PI) theta = theta + 2.0f * Mathf.PI;
+            if (+Mathf.PI < theta) theta -= 2.0f * Mathf.PI;
+            if (theta < -Mathf.PI) theta += 2.0f * Mathf.PI;
 
             theta = theta0 + rate * theta;
 
